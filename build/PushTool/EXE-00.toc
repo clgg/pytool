@@ -54,7 +54,7 @@
  [],
  False,
  False,
- 1776234904,
+ 1776244731,
  [('runw',
    '/Users/melon/git_pro/nicegui_image_tool/.venv/lib/python3.14/site-packages/PyInstaller/bootloader/Darwin-64bit/runw',
    'EXECUTABLE')],
