@@ -58,6 +58,19 @@ def index() -> None:
         ("愿你今天被温柔以待", "遇见好人好事，心里有光，脚下有路。"),
     ]
 
+    quick_users = [
+        {"name": "东", "unionId": "oNGxt52FTTHyIgjtKr-VnrQeMwjA"},
+        {"name": "剑", "unionId": "oNGxt57gtLmePLmpQDFbTVRYjy4Q"},
+        {"name": "世勇", "unionId": "oNGxt5wGEF9Z2TNaJHliUBdcH-vM"},
+        {"name": "白雪峰", "unionId": "oNGxt56cy_2OCR9s0SvpsIplXmIY"},
+        {"name": "谷雨", "unionId": "oNGxt5yZoqP8-sI6pO0msqhdmuTg"},
+        {"name": "学明", "unionId": "oNGxt53EwZsbThttkTyLY_EP8jVc"},
+        {"name": "振霞", "unionId": "oNGxt58ULE81gkb7BW6ZF7RrPjK4"},
+        {"name": "咏甄", "unionId": "oNGxt50y3QIxj02jWeOx6tR5G8oU"},
+        {"name": "李响", "unionId": "oNGxt50-VGVttxHbvC17cNN6U2_o"},
+        {"name": "力广", "unionId": "oNGxt57DNJQNFPUWcDMv8dC7pH94"},
+    ]
+
     ui.add_head_html(
         """
         <style>
@@ -66,12 +79,13 @@ def index() -> None:
           .muted{color:rgba(15,23,42,.52)}
           .history_scroll{max-height:680px;overflow:auto}
           .left_panel{width:520px;flex:0 0 auto}
+          .right_panel{flex:1 1 auto;min-width:0}
         </style>
         """
     )
 
     with ui.element("div").classes("app_wrap"):
-        with ui.row().classes("w-full items-start gap-4"):
+        with ui.row().classes("w-full items-start gap-4").style("flex-wrap:nowrap"):
             with ui.column().classes("left_panel gap-3"):
                 with ui.card().classes("w-full"):
                     ui.label("推送发送").classes("text-lg font-semibold")
@@ -91,9 +105,13 @@ def index() -> None:
                     union_input = ui.textarea("unionId（逗号/换行分隔，不能为空）").props("autogrow").classes("w-full").style("min-height:140px")
                     if default_union_ids:
                         union_input.value = "\n".join(default_union_ids[:50])
+                    selected_container = ui.row().classes("w-full gap-2 flex-wrap mt-2")
+                    ui.label("快捷加入").classes("text-xs muted mt-2")
+                    quick_container = ui.grid(columns=5).classes("w-full gap-2")
 
                 with ui.card().classes("w-full"):
                     ui.label("params").classes("panel_title")
+                    ui.button("JSON 格式化", on_click=lambda: format_params()).props("dense flat")
                     params_input = ui.textarea("params (JSON)").props("autogrow").classes("w-full")
                     params_input.value = json.dumps(push_script.PARAMS, ensure_ascii=False, indent=2)
 
@@ -103,7 +121,7 @@ def index() -> None:
                     ui.label("result").classes("panel_title")
                     result_area = ui.textarea("").props("readonly autogrow").classes("w-full")
 
-            with ui.column().classes("grow gap-3"):
+            with ui.column().classes("right_panel gap-3"):
                 with ui.card().classes("w-full"):
                     ui.label("历史记录").classes("text-lg font-semibold")
                     ui.label("点击时间回填，右侧删除").classes("text-sm muted")
@@ -114,8 +132,70 @@ def index() -> None:
         title_input.value = t
         alert_input.value = a
 
+    def format_params() -> None:
+        try:
+            obj = json.loads(params_input.value or "{}")
+            params_input.value = json.dumps(obj, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    def _current_union_set() -> set[str]:
+        return set(_parse_union_ids(union_input.value or ""))
+
+    selected_union_ids: List[str] = _parse_union_ids(union_input.value or "")
+
+    def _sync_from_textarea() -> None:
+        nonlocal selected_union_ids
+        selected_union_ids = _parse_union_ids(union_input.value or "")
+
+    def _sync_to_textarea() -> None:
+        union_input.value = "\n".join(selected_union_ids)
+
+    def _toggle_union_id(uid: str) -> None:
+        nonlocal selected_union_ids
+        if uid in selected_union_ids:
+            selected_union_ids = [x for x in selected_union_ids if x != uid]
+        else:
+            selected_union_ids = selected_union_ids + [uid]
+        _sync_to_textarea()
+        render_quick_users()
+        render_selected()
+
+    def _remove_union_id(uid: str) -> None:
+        nonlocal selected_union_ids
+        selected_union_ids = [x for x in selected_union_ids if x != uid]
+        _sync_to_textarea()
+        render_quick_users()
+        render_selected()
+
+    def render_selected() -> None:
+        selected_container.clear()
+        uid_to_name = {u["unionId"]: u["name"] for u in quick_users}
+        with selected_container:
+            for uid in selected_union_ids:
+                name = uid_to_name.get(uid, uid[:6] + "…" + uid[-4:])
+                ui.button(f"{name} ×", on_click=lambda e=None, x=uid: _remove_union_id(x)).props("dense unelevated color=secondary").classes("rounded-full")
+
+    def render_quick_users() -> None:
+        selected = set(selected_union_ids)
+        quick_container.clear()
+        with quick_container:
+            for u in quick_users:
+                uid = u["unionId"]
+                name = u["name"]
+                if uid in selected:
+                    ui.button(f"{name} ✓", on_click=lambda e=None, x=uid: _toggle_union_id(x)).props("dense unelevated color=primary").classes("rounded-full w-full")
+                else:
+                    ui.button(name, on_click=lambda e=None, x=uid: _toggle_union_id(x)).props("dense outline").classes("rounded-full w-full")
+
     def render_history() -> None:
         history_container.clear()
+        if not history:
+            with history_container:
+                with ui.element("div").classes("w-full").style("flex: 1 1 100%"):
+                    with ui.card().classes("w-full").style("min-height:120px;width:100%"):
+                        ui.label("暂无历史记录").classes("text-sm muted")
+            return
         for idx, item in enumerate(history):
             with history_container:
                 with ui.card().classes("w-96"):
@@ -124,6 +204,10 @@ def index() -> None:
                         ui.label(item.get("title", "")).classes("text-sm muted")
                         ui.space()
                         ui.button("del").props("dense flat color=negative").on("click", lambda e, i=idx: delete_history(i))
+                    p = item.get("params", {})
+                    path = p.get("path") if isinstance(p, dict) else None
+                    if path:
+                        ui.label(f"path: {path}").classes("text-xs muted")
 
     def load_history(i: int) -> None:
         item = history[i]
@@ -131,6 +215,9 @@ def index() -> None:
         alert_input.value = item.get("alert", "")
         union_input.value = "\n".join(item.get("union_ids", []) or [])
         params_input.value = json.dumps(item.get("params", {}), ensure_ascii=False, indent=2)
+        _sync_from_textarea()
+        render_quick_users()
+        render_selected()
 
     def delete_history(i: int) -> None:
         history.pop(i)
@@ -167,6 +254,14 @@ def index() -> None:
         except Exception as e:
             result_area.value = str(e)
 
+    def _on_union_input(_: Any) -> None:
+        _sync_from_textarea()
+        render_quick_users()
+        render_selected()
+
+    union_input.on("input", _on_union_input)
+    render_quick_users()
+    render_selected()
     render_history()
 
 
