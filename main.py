@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 import pkgutil
+import random
 import time
 from typing import Any, Dict, List
 
@@ -48,6 +49,15 @@ def index() -> None:
     except Exception:
         default_union_ids = []
 
+    copy_pool = [
+        ("早安！愿你今天顺顺利利", "新的一天，记得喝水、别太累，祝你心情明朗。"),
+        ("午安！给自己一点松弛感", "忙里偷闲也很重要，愿你今天一切进展顺利。"),
+        ("晚安！辛苦了", "把烦恼留给夜色，愿你一觉好眠，明天更轻松。"),
+        ("祝你今天好运加倍", "愿好消息不断，事事有回应，件件有着落。"),
+        ("提醒：别忘了照顾自己", "工作再忙也要吃好睡好，愿你平安喜乐。"),
+        ("愿你今天被温柔以待", "遇见好人好事，心里有光，脚下有路。"),
+    ]
+
     ui.add_head_html(
         """
         <style>
@@ -55,27 +65,30 @@ def index() -> None:
           .panel_title{font-size:14px;font-weight:600;color:rgba(15,23,42,.78);letter-spacing:.2px}
           .muted{color:rgba(15,23,42,.52)}
           .history_scroll{max-height:680px;overflow:auto}
+          .left_panel{width:520px;flex:0 0 auto}
         </style>
         """
     )
 
     with ui.element("div").classes("app_wrap"):
         with ui.row().classes("w-full items-start gap-4"):
-            with ui.column().classes("col grow gap-3"):
+            with ui.column().classes("left_panel gap-3"):
                 with ui.card().classes("w-full"):
                     ui.label("推送发送").classes("text-lg font-semibold")
                     ui.label("输入参数、unionId、标题与描述后点击发送").classes("text-sm muted")
 
                 with ui.card().classes("w-full"):
                     ui.label("内容").classes("panel_title")
-                    title_input = ui.input("title").classes("w-full")
+                    with ui.row().classes("w-full items-center gap-2"):
+                        title_input = ui.input("title").classes("grow")
+                        ui.button("随机切换", on_click=lambda: random_copy()).props("dense unelevated")
                     title_input.value = push_script.TITLE
                     alert_input = ui.input("alert").classes("w-full")
                     alert_input.value = push_script.ALERT
 
                 with ui.card().classes("w-full"):
                     ui.label("目标用户").classes("panel_title")
-                    union_input = ui.textarea("unionId（逗号/换行分隔，不能为空）").props("autogrow").classes("w-full")
+                    union_input = ui.textarea("unionId（逗号/换行分隔，不能为空）").props("autogrow").classes("w-full").style("min-height:140px")
                     if default_union_ids:
                         union_input.value = "\n".join(default_union_ids[:50])
 
@@ -90,17 +103,22 @@ def index() -> None:
                     ui.label("result").classes("panel_title")
                     result_area = ui.textarea("").props("readonly autogrow").classes("w-full")
 
-            with ui.column().classes("col-4 gap-3"):
+            with ui.column().classes("grow gap-3"):
                 with ui.card().classes("w-full"):
                     ui.label("历史记录").classes("text-lg font-semibold")
                     ui.label("点击时间回填，右侧删除").classes("text-sm muted")
-                history_container = ui.column().classes("w-full gap-2 history_scroll")
+                history_container = ui.row().classes("w-full gap-3 history_scroll flex-wrap items-start")
+
+    def random_copy() -> None:
+        t, a = random.choice(copy_pool)
+        title_input.value = t
+        alert_input.value = a
 
     def render_history() -> None:
         history_container.clear()
         for idx, item in enumerate(history):
             with history_container:
-                with ui.card().classes("w-full"):
+                with ui.card().classes("w-96"):
                     with ui.row().classes("w-full items-center gap-2"):
                         ui.button(item.get("ts", "")).props("dense flat").on("click", lambda e, i=idx: load_history(i))
                         ui.label(item.get("title", "")).classes("text-sm muted")
